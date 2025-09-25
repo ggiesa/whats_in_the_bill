@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>What's in the Bill?</title>
+    <!-- PDF.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -14,157 +16,469 @@
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
+            height: 100vh;
+            overflow: hidden;
         }
 
-        .container {
+        .app-container {
+            display: flex;
+            height: 100vh;
+            gap: 1px;
+        }
+
+        /* PDF Viewer Section - Left Side */
+        .pdf-section {
+            flex: 1;
             background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-            padding: 40px;
-            max-width: 600px;
-            width: 100%;
+            display: flex;
+            flex-direction: column;
+            min-width: 0; /* Allows flex item to shrink below content size */
+        }
+
+        .pdf-header {
+            background: #2d3748;
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: between;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .pdf-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            flex-grow: 1;
+        }
+
+        .pdf-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-left: auto;
+        }
+
+        .pdf-controls button {
+            background: #4a5568;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background-color 0.2s;
+        }
+
+        .pdf-controls button:hover {
+            background: #667eea;
+        }
+
+        .page-info {
+            color: #e2e8f0;
+            font-size: 0.9rem;
+            margin: 0 10px;
+        }
+
+        .pdf-viewer {
+            flex: 1;
+            background: #f7fafc;
+            overflow-y: auto;
+            overflow-x: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .pdf-pages-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            max-width: 100%;
+            align-items: center;
+        }
+
+        .pdf-page {
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+        }
+
+        .pdf-page canvas {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .pdf-loading {
+            color: #718096;
+            font-size: 1.1rem;
             text-align: center;
         }
 
-        h1 {
-            color: #2d3748;
-            font-size: 2.5rem;
-            font-weight: 700;
-            margin-bottom: 10px;
+        /* Chat Section - Right Side */
+        .chat-section {
+            width: 400px;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .chat-header {
             background: linear-gradient(135deg, #667eea, #764ba2);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            color: white;
+            padding: 20px;
+            text-align: center;
         }
 
-        .subtitle {
-            color: #718096;
-            font-size: 1.1rem;
-            margin-bottom: 40px;
+        .chat-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 5px;
         }
 
-        .form-group {
-            margin-bottom: 30px;
-            text-align: left;
+        .chat-subtitle {
+            font-size: 0.9rem;
+            opacity: 0.9;
         }
 
-        label {
-            display: block;
-            color: #4a5568;
-            font-weight: 600;
-            margin-bottom: 10px;
-            font-size: 1.1rem;
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #f8f9fa;
         }
 
-        textarea {
-            width: 100%;
-            min-height: 150px;
-            padding: 15px;
-            border: 2px solid #e2e8f0;
+        .message {
+            margin-bottom: 15px;
+            padding: 12px 15px;
             border-radius: 12px;
-            font-size: 1rem;
+            max-width: 90%;
+        }
+
+        .message.user {
+            background: #667eea;
+            color: white;
+            margin-left: auto;
+        }
+
+        .message.assistant {
+            background: white;
+            border: 1px solid #e2e8f0;
+            color: #2d3748;
+        }
+
+        .chat-input-container {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .chat-form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .chat-textarea {
+            width: 100%;
+            min-height: 80px;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 0.95rem;
             font-family: inherit;
-            resize: vertical;
+            resize: none;
             transition: all 0.3s ease;
             background: #f7fafc;
         }
 
-        textarea:focus {
+        .chat-textarea:focus {
             outline: none;
             border-color: #667eea;
             background: white;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
 
-        textarea::placeholder {
+        .chat-textarea::placeholder {
             color: #a0aec0;
         }
 
-        .submit-btn {
+        .chat-submit-btn {
             background: linear-gradient(135deg, #667eea, #764ba2);
             color: white;
             border: none;
-            padding: 15px 40px;
-            font-size: 1.1rem;
+            padding: 12px 24px;
+            font-size: 1rem;
             font-weight: 600;
-            border-radius: 12px;
+            border-radius: 8px;
             cursor: pointer;
             transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+            box-shadow: 0 2px 10px rgba(102, 126, 234, 0.3);
         }
 
-        .submit-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        .chat-submit-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
         }
 
-        .submit-btn:active {
+        .chat-submit-btn:active {
             transform: translateY(0);
         }
 
-        .result {
-            margin-top: 30px;
-            padding: 20px;
+        .result-message {
             background: #f0fff4;
-            border: 2px solid #9ae6b4;
-            border-radius: 12px;
+            border: 1px solid #9ae6b4;
             color: #22543d;
-            font-weight: 500;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
         }
 
-        .footer {
-            margin-top: 40px;
-            color: #a0aec0;
-            font-size: 0.9rem;
+        /* Responsive Design */
+        @media (max-width: 1024px) {
+            .chat-section {
+                width: 350px;
+            }
         }
 
-        @media (max-width: 640px) {
-            .container {
-                padding: 30px 20px;
+        @media (max-width: 768px) {
+            .app-container {
+                flex-direction: column;
             }
             
-            h1 {
-                font-size: 2rem;
+            .pdf-section {
+                height: 60vh;
+            }
+            
+            .chat-section {
+                width: 100%;
+                height: 40vh;
+            }
+            
+            .chat-messages {
+                padding: 15px;
+            }
+            
+            .chat-input-container {
+                padding: 15px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .pdf-header {
+                padding: 10px 15px;
+            }
+            
+            .pdf-title {
+                font-size: 1rem;
+            }
+            
+            .pdf-controls button {
+                padding: 6px 10px;
+                font-size: 0.8rem;
+            }
+            
+            .chat-header {
+                padding: 15px;
+            }
+            
+            .chat-title {
+                font-size: 1.3rem;
             }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>What's in the Bill?</h1>
-        <p class="subtitle">Paste your bill text below and we'll analyze it for you</p>
-        
-        <form method="post" action="/analyze">
-            <div class="form-group">
-                <label for="bill_text">Bill Text:</label>
-                <textarea 
-                    id="bill_text" 
-                    name="bill_text" 
-                    placeholder="Paste your bill or legislative text here..."
-                    required
-                >{{ bill_text or '' }}</textarea>
+    <div class="app-container">
+        <!-- PDF Viewer Section -->
+        <div class="pdf-section">
+            <div class="pdf-header">
+                <div class="pdf-title">PLAW-119publ21.pdf - Big Beautiful Bill</div>
+                <div class="pdf-controls">
+                    <span class="page-info">
+                        <span id="page-count">Loading...</span> pages
+                    </span>
+                    <button id="zoom-out">Zoom Out</button>
+                    <button id="zoom-in">Zoom In</button>
+                </div>
+            </div>
+            <div class="pdf-viewer">
+                <div class="pdf-loading" id="pdf-loading">Loading PDF...</div>
+                <div class="pdf-pages-container" id="pdf-pages-container" style="display: none;"></div>
+            </div>
+        </div>
+
+        <!-- Chat Section -->
+        <div class="chat-section">
+            <div class="chat-header">
+                <div class="chat-title">Ask About the Bill</div>
+                <div class="chat-subtitle">Get AI-powered insights and analysis</div>
             </div>
             
-            <button type="submit" class="submit-btn">
-                Analyze Bill
-            </button>
-        </form>
-
-        {% if result %}
-        <div class="result">
-            <strong>Analysis Result:</strong><br>
-            {{ result }}
-        </div>
-        {% endif %}
-
-        <div class="footer">
-            <p>Powered by FastAPI and PostgreSQL with PGVector</p>
+            <div class="chat-messages" id="chat-messages">
+                {% if result %}
+                <div class="result-message">
+                    <strong>Analysis Result:</strong><br>
+                    {{ result }}
+                </div>
+                {% endif %}
+                
+                <div class="message assistant">
+                    👋 Hi! I can help you understand this bill. Ask me anything about its contents, implications, or specific sections you'd like me to explain.
+                </div>
+            </div>
+            
+            <div class="chat-input-container">
+                <form method="post" action="/analyze" class="chat-form">
+                    <textarea 
+                        id="bill_text" 
+                        name="bill_text" 
+                        class="chat-textarea"
+                        placeholder="Ask me anything about this bill..."
+                        required
+                    >{{ bill_text or '' }}</textarea>
+                    
+                    <button type="submit" class="chat-submit-btn">
+                        Send Question
+                    </button>
+                </form>
+            </div>
         </div>
     </div>
+
+    <script>
+        // PDF.js setup
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        let pdfDoc = null;
+        let scale = 2.4;
+        let renderingPages = new Set();
+        const pagesContainer = document.getElementById('pdf-pages-container');
+
+        // Load the PDF
+        const loadPDF = async () => {
+            try {
+                const loadingTask = pdfjsLib.getDocument('/pdf/PLAW-119publ21.pdf');
+                pdfDoc = await loadingTask.promise;
+                document.getElementById('page-count').textContent = pdfDoc.numPages;
+                
+                // Hide loading message and show pages container
+                document.getElementById('pdf-loading').style.display = 'none';
+                pagesContainer.style.display = 'flex';
+                
+                // Render all pages
+                renderAllPages();
+            } catch (error) {
+                console.error('Error loading PDF:', error);
+                document.getElementById('pdf-loading').textContent = 'Error loading PDF. Please try again.';
+            }
+        };
+
+        // Render all pages
+        const renderAllPages = async () => {
+            pagesContainer.innerHTML = ''; // Clear existing pages
+            
+            for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+                await renderPage(pageNum);
+            }
+        };
+
+        // Render a specific page
+        const renderPage = async (pageNum) => {
+            if (renderingPages.has(pageNum)) return;
+            renderingPages.add(pageNum);
+
+            try {
+                const page = await pdfDoc.getPage(pageNum);
+                const viewport = page.getViewport({ scale: scale });
+                
+                // Create page container
+                const pageDiv = document.createElement('div');
+                pageDiv.className = 'pdf-page';
+                pageDiv.id = `page-${pageNum}`;
+                
+                // Create canvas
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+                
+                pageDiv.appendChild(canvas);
+                pagesContainer.appendChild(pageDiv);
+
+                const renderContext = {
+                    canvasContext: ctx,
+                    viewport: viewport
+                };
+                
+                await page.render(renderContext).promise;
+                renderingPages.delete(pageNum);
+            } catch (error) {
+                console.error(`Error rendering page ${pageNum}:`, error);
+                renderingPages.delete(pageNum);
+            }
+        };
+
+        // Re-render all pages with new scale
+        const reRenderAllPages = async () => {
+            renderingPages.clear();
+            await renderAllPages();
+        };
+
+        // Zoom controls
+        document.getElementById('zoom-in').addEventListener('click', async () => {
+            scale += 0.2;
+            await reRenderAllPages();
+        });
+
+        document.getElementById('zoom-out').addEventListener('click', async () => {
+            if (scale <= 0.4) return;
+            scale -= 0.2;
+            await reRenderAllPages();
+        });
+
+        // Auto-scroll chat messages to bottom
+        const scrollChatToBottom = () => {
+            const chatMessages = document.getElementById('chat-messages');
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        };
+
+        // Initialize
+        loadPDF();
+        scrollChatToBottom();
+
+        // Handle form submission with better UX
+        document.querySelector('.chat-form').addEventListener('submit', (e) => {
+            const textarea = document.getElementById('bill_text');
+            const submitBtn = document.querySelector('.chat-submit-btn');
+            
+            if (textarea.value.trim()) {
+                // Add user message to chat
+                const chatMessages = document.getElementById('chat-messages');
+                const userMessage = document.createElement('div');
+                userMessage.className = 'message user';
+                userMessage.textContent = textarea.value;
+                chatMessages.appendChild(userMessage);
+                
+                // Show loading state
+                submitBtn.textContent = 'Analyzing...';
+                submitBtn.disabled = true;
+                
+                scrollChatToBottom();
+            }
+        });
+
+        // Auto-resize textarea
+        document.getElementById('bill_text').addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+        });
+
+        // Smooth scrolling for better UX
+        document.querySelector('.pdf-viewer').style.scrollBehavior = 'smooth';
+    </script>
 </body>
 </html>

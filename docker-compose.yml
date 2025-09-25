@@ -29,6 +29,8 @@ services:
     container_name: web
     ports:
       - "${WEB_PORT:-8000}:8000"
+    volumes:
+      - ./data:/app/data  # Mount the data directory for PDF files
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-whats_in_the_bill}
     depends_on:
