@@ -103,12 +103,54 @@
             background: white;
             border: 1px solid #e2e8f0;
             border-radius: 4px;
+            position: relative;
         }
 
         .pdf-page canvas {
             display: block;
             max-width: 100%;
             height: auto;
+        }
+
+        .pdf-page .textLayer {
+            position: absolute;
+            left: 0;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            overflow: hidden;
+            opacity: 0.25;
+            line-height: 1.0;
+            user-select: text;
+            -webkit-user-select: text;
+            -moz-user-select: text;
+            -ms-user-select: text;
+            pointer-events: auto;
+        }
+
+        .pdf-page .textLayer > span {
+            color: transparent;
+            position: absolute;
+            white-space: pre;
+            cursor: text;
+            transform-origin: 0% 0%;
+        }
+
+        .pdf-page .textLayer .highlight {
+            margin: -1px;
+            padding: 1px;
+            background-color: rgba(180, 0, 170, 0.2);
+            border-radius: 4px;
+        }
+
+        .pdf-page .textLayer ::selection {
+            background: rgba(74, 144, 226, 0.8) !important;
+            color: transparent !important;
+        }
+
+        .pdf-page .textLayer ::-moz-selection {
+            background: rgba(74, 144, 226, 0.8) !important;
+            color: transparent !important;
         }
 
         .pdf-loading {
@@ -400,21 +442,41 @@
                 pageDiv.className = 'pdf-page';
                 pageDiv.id = `page-${pageNum}`;
                 
-                // Create canvas
+                // Create canvas for visual rendering
                 const canvas = document.createElement('canvas');
                 const ctx = canvas.getContext('2d');
                 canvas.height = viewport.height;
                 canvas.width = viewport.width;
                 
+                // Create text layer for text selection
+                const textLayerDiv = document.createElement('div');
+                textLayerDiv.className = 'textLayer';
+                textLayerDiv.style.height = viewport.height + 'px';
+                textLayerDiv.style.width = viewport.width + 'px';
+                textLayerDiv.style.setProperty('--scale-factor', scale);
+                
                 pageDiv.appendChild(canvas);
+                pageDiv.appendChild(textLayerDiv);
                 pagesContainer.appendChild(pageDiv);
 
+                // Render the canvas
                 const renderContext = {
                     canvasContext: ctx,
                     viewport: viewport
                 };
                 
                 await page.render(renderContext).promise;
+                
+                // Render the text layer
+                const textContent = await page.getTextContent();
+                const textLayerRenderTask = pdfjsLib.renderTextLayer({
+                    textContentSource: textContent,
+                    container: textLayerDiv,
+                    viewport: viewport,
+                    textDivs: []
+                });
+                
+                await textLayerRenderTask.promise;
                 renderingPages.delete(pageNum);
             } catch (error) {
                 console.error(`Error rendering page ${pageNum}:`, error);
@@ -445,6 +507,7 @@
             const chatMessages = document.getElementById('chat-messages');
             chatMessages.scrollTop = chatMessages.scrollHeight;
         };
+
 
         // Initialize
         loadPDF();
